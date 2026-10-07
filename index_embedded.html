@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Echo Clock & Weather</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0d1117; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #fff; }
+  .screen {
+    width: 100vw; height: 100vh; display: grid;
+    grid-template-columns: 58% 42%;
+    background: radial-gradient(circle at 15% 15%, #243247 0, #111821 42%, #090d12 100%);
+    padding: 24px 28px;
+  }
+  .left { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  #time { font-size: clamp(72px, 15vw, 150px); line-height: .88; font-weight: 700; letter-spacing: -5px; white-space: nowrap; }
+  #ampm { font-size: clamp(22px, 4vw, 38px); margin-left: 8px; vertical-align: top; letter-spacing: 0; opacity: .85; }
+  #date { margin-top: 16px; font-size: clamp(22px, 4vw, 42px); font-weight: 600; opacity: .92; }
+  #location { margin-top: 10px; font-size: clamp(17px, 2.4vw, 26px); opacity: .62; }
+  .right { display: flex; flex-direction: column; justify-content: center; padding-left: 18px; border-left: 1px solid rgba(255,255,255,.14); min-width: 0; }
+  .now { display: flex; align-items: center; gap: 10px; }
+  #icon { font-size: clamp(54px, 9vw, 92px); width: 98px; text-align: center; }
+  #temp { font-size: clamp(66px, 10vw, 104px); line-height: .9; font-weight: 700; letter-spacing: -3px; }
+  #condition { margin-top: 8px; font-size: clamp(22px, 3.2vw, 34px); font-weight: 600; }
+  .details { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: clamp(16px, 2.3vw, 23px); opacity: .82; }
+  .forecast { margin-top: 20px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.12); display: flex; gap: 22px; font-size: clamp(15px, 2vw, 21px); opacity: .78; }
+  .forecast b { display: block; color: #fff; opacity: .95; margin-bottom: 3px; }
+  #status { position: fixed; right: 14px; bottom: 10px; font-size: 12px; opacity: .42; }
+  #wakeButton {
+    display: none; position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+    border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.72); color: #fff;
+    border-radius: 18px; padding: 8px 14px; font-size: 14px;
+  }
+  @media (max-width: 650px) {
+    .screen { padding: 18px 20px; grid-template-columns: 56% 44%; }
+    .right { padding-left: 14px; }
+    #icon { width: 72px; }
+    .forecast { gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+  <section class="left">
+    <div><span id="time">--:--</span><span id="ampm"></span></div>
+    <div id="date">Loading…</div>
+    <div id="location">Harrisburg, PA · 17112</div>
+  </section>
+
+  <section class="right">
+    <div class="now">
+      <div id="icon">☁️</div>
+      <div id="temp">--°</div>
+    </div>
+    <div id="condition">Loading weather…</div>
+    <div class="details">
+      <div id="feels">Feels --°</div>
+      <div id="highlow">H --° · L --°</div>
+      <div id="humidity">Humidity --%</div>
+      <div id="rain">Rain --%</div>
+    </div>
+    <div class="forecast">
+      <div><b>Tomorrow</b><span id="tomorrow">--</span></div>
+      <div><b>Next day</b><span id="day2">--</span></div>
+    </div>
+  </section>
+</div>
+
+<audio id="keepAlive" src="data:audio/mpeg;base64,SUQzBAAAAAAAIlRTU0UAAAAOAAADTGF2ZjYxLjcuMTAzAAAAAAAAAAAAAAD/+0DAAAAAAAAAAAAAAAAAAAAAAABJbmZvAAAADwAAACgAABD2ABAQFhYdHR0jIykpKS8vNTU1OztBQUFISE5OTlRUWlpaYGBmZmZsbHJycnl5f39/hYWLi4uRkZeXl52dpKSkqqqwsLC2try8vMLCyMjIzs7V1dXb2+Hh4efn7e3t8/P5+fn//wAAAABMYXZjNjEuMTkAAAAAAAAAAAAAAAAkBXwAAAAAAAAQ9in4b6YAAAAAAP/7EMQAA8AAAaQAAAAgAAA0gAAABExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxCmDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDEUwPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMR8g8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxKYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDEz4PAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//sQxNYDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+xDE1gPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7EMTWA8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV" autoplay loop preload="auto"></audio>
+<button id="wakeButton" type="button">Tap once to keep display awake</button>
+<div id="status"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const LAT = 40.37497;
+  const LON = -76.77163;
+  const TZ = 'America/New_York';
+
+  const $ = (id) => document.getElementById(id);
+
+  function updateClock() {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true
+    }).formatToParts(now);
+    const hour = parts.find(p => p.type === 'hour')?.value || '';
+    const minute = parts.find(p => p.type === 'minute')?.value || '';
+    const dayPeriod = parts.find(p => p.type === 'dayPeriod')?.value || '';
+    $('time').textContent = `${hour}:${minute}`;
+    $('ampm').textContent = dayPeriod;
+    $('date').textContent = new Intl.DateTimeFormat('en-US', {
+      timeZone: TZ, weekday: 'long', month: 'long', day: 'numeric'
+    }).format(now);
+  }
+
+  function weatherText(code) {
+    const table = {
+      0:['☀️','Clear'], 1:['🌤️','Mostly clear'], 2:['⛅','Partly cloudy'], 3:['☁️','Cloudy'],
+      45:['🌫️','Fog'], 48:['🌫️','Freezing fog'],
+      51:['🌦️','Light drizzle'], 53:['🌦️','Drizzle'], 55:['🌧️','Heavy drizzle'],
+      56:['🌧️','Freezing drizzle'], 57:['🌧️','Freezing drizzle'],
+      61:['🌦️','Light rain'], 63:['🌧️','Rain'], 65:['🌧️','Heavy rain'],
+      66:['🌧️','Freezing rain'], 67:['🌧️','Freezing rain'],
+      71:['🌨️','Light snow'], 73:['🌨️','Snow'], 75:['❄️','Heavy snow'], 77:['❄️','Snow grains'],
+      80:['🌦️','Rain showers'], 81:['🌧️','Rain showers'], 82:['⛈️','Heavy showers'],
+      85:['🌨️','Snow showers'], 86:['❄️','Heavy snow showers'],
+      95:['⛈️','Thunderstorms'], 96:['⛈️','Thunderstorms'], 99:['⛈️','Thunderstorms']
+    };
+    return table[code] || ['🌡️','Current weather'];
+  }
+
+  function round(v) { return Number.isFinite(v) ? Math.round(v) : '--'; }
+
+  async function updateWeather() {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+      `&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch` +
+      `&timezone=${encodeURIComponent(TZ)}&forecast_days=3`;
+
+    try {
+      $('status').textContent = 'Updating…';
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Weather HTTP ${res.status}`);
+      const d = await res.json();
+      const [icon, text] = weatherText(d.current.weather_code);
+      $('icon').textContent = icon;
+      $('temp').textContent = `${round(d.current.temperature_2m)}°`;
+      $('condition').textContent = text;
+      $('feels').textContent = `Feels ${round(d.current.apparent_temperature)}°`;
+      $('humidity').textContent = `Humidity ${round(d.current.relative_humidity_2m)}%`;
+      $('highlow').textContent = `H ${round(d.daily.temperature_2m_max[0])}° · L ${round(d.daily.temperature_2m_min[0])}°`;
+      $('rain').textContent = `Rain ${round(d.daily.precipitation_probability_max[0])}%`;
+
+      const t1 = weatherText(d.daily.weather_code[1]);
+      const t2 = weatherText(d.daily.weather_code[2]);
+      $('tomorrow').textContent = `${t1[0]} ${round(d.daily.temperature_2m_max[1])}°/${round(d.daily.temperature_2m_min[1])}°`;
+      $('day2').textContent = `${t2[0]} ${round(d.daily.temperature_2m_max[2])}°/${round(d.daily.temperature_2m_min[2])}°`;
+      $('status').textContent = `Updated ${new Intl.DateTimeFormat('en-US', {timeZone: TZ, hour:'numeric', minute:'2-digit'}).format(new Date())}`;
+    } catch (err) {
+      console.error(err);
+      $('condition').textContent = 'Weather unavailable';
+      $('status').textContent = 'Weather update failed';
+    }
+  }
+
+  async function keepAwake() {
+    const audio = $('keepAlive');
+    try {
+      audio.volume = 0.01;
+      await audio.play();
+      $('wakeButton').style.display = 'none';
+    } catch (e) {
+      $('wakeButton').style.display = 'block';
+    }
+
+    if ('wakeLock' in navigator) {
+      try { await navigator.wakeLock.request('screen'); } catch (_) {}
+    }
+  }
+
+  $('wakeButton').addEventListener('click', keepAwake);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) keepAwake(); });
+
+  updateClock();
+  updateWeather();
+  keepAwake();
+  setInterval(updateClock, 1000);
+  setInterval(updateWeather, 15 * 60 * 1000);
+})();
+</script>
+</body>
+</html>
