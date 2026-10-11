@@ -30,7 +30,7 @@ body{display:flex;align-items:center;justify-content:center;color:#fff;font-fami
 #condition{font-family:Arial Black,Arial,Helvetica,sans-serif;font-size:calc(27px * var(--s));font-weight:900;line-height:1;margin-top:calc(1px * var(--s));white-space:nowrap}
 #summary{margin-top:calc(11px * var(--s));display:flex;align-items:center;justify-content:center;gap:calc(9px * var(--s));font-size:calc(21px * var(--s));font-weight:800;white-space:nowrap}
 #summary .dot{font-size:.78em;opacity:.95}
-#wake{display:none;position:absolute;z-index:5;left:50%;bottom:calc(8px * var(--s));transform:translateX(-50%);background:rgba(0,0,0,.78);border:1px solid rgba(255,255,255,.55);border-radius:calc(18px * var(--s));color:#fff;font-size:calc(14px * var(--s));padding:calc(7px * var(--s)) calc(13px * var(--s));white-space:nowrap}
+#wake{display:block;position:absolute;z-index:99;left:50%;top:calc(12px * var(--s));bottom:auto;transform:translateX(-50%);background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.75);border-radius:calc(18px * var(--s));color:#fff;font-size:calc(14px * var(--s));font-weight:700;padding:calc(8px * var(--s)) calc(15px * var(--s));white-space:nowrap;box-shadow:0 calc(2px * var(--s)) calc(6px * var(--s)) rgba(0,0,0,.45)}
 #status{position:absolute;z-index:4;right:calc(7px * var(--s));top:calc(5px * var(--s));font-size:calc(10px * var(--s));opacity:.48}
 </style>
 </head>
@@ -65,12 +65,15 @@ async function weather(){
  try{var r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json(),c=d.current,day=d.daily;$('icon').textContent=ico(c.weather_code);$('temperature').textContent=rnd(c.temperature_2m);$('condition').textContent=desc(c.weather_code);$('high').textContent='H '+rnd(day.temperature_2m_max[0])+'°';$('low').textContent='L '+rnd(day.temperature_2m_min[0])+'°';$('rain').textContent='Rain '+rnd(day.precipitation_probability_max[0])+'%';$('status').textContent='';lastWeather=Date.now();}
  catch(e){$('status').textContent='Weather offline';}
 }
-// Keep the live clock/weather code independent from the Silk keep-open helper.
-$('wake').style.display='block';
-function hideWakePrompt(){ $('wake').style.display='none'; }
-$('wake').addEventListener('click', hideWakePrompt);
-document.addEventListener('pointerdown', hideWakePrompt, {once:true});
-document.addEventListener('click', hideWakePrompt, {once:true});
+// Keep the prompt visible until the user EXPLICITLY taps it.
+// Do not hide it on autoplay/playing: Keep Silk Open starts muted and needs
+// a real user interaction before it unmutes the silent media.
+var wakeBtn=$('wake');
+wakeBtn.style.display='block';
+wakeBtn.addEventListener('click',function(){
+  wakeBtn.textContent='Keep-awake activated';
+  setTimeout(function(){wakeBtn.style.display='none';},1200);
+});
 document.addEventListener('visibilitychange',function(){if(!document.hidden && Date.now()-lastWeather>900000)weather();});
 addEventListener('resize',resize);
 resize();updateClock();weather();setInterval(updateClock,1000);setInterval(weather,900000);
@@ -82,21 +85,7 @@ resize();updateClock();weather();setInterval(updateClock,1000);setInterval(weath
      as unmuted media and reloads that media when it ends. -->
 <script>var AlwaysUseSilk = true;</script>
 <script src="https://dagammla.gitlab.io/keep-silk-open/keep.js"></script>
-<script>
-(function(){
-  // The helper appends one audio element. Keep the prompt visible until Silk
-  // actually reports that media is playing, so the required first tap is clear.
-  function bindKeepOpenAudio(){
-    var list=document.getElementsByTagName('audio');
-    var a=list.length?list[list.length-1]:null;
-    if(!a){setTimeout(bindKeepOpenAudio,250);return;}
-    function onPlaying(){var w=document.getElementById('wake');if(w)w.style.display='none';}
-    a.addEventListener('playing',onPlaying);
-    if(!a.paused) onPlaying();
-  }
-  bindKeepOpenAudio();
-})();
-</script>
+
 
 </body>
 </html>
